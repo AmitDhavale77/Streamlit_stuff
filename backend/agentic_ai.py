@@ -18,7 +18,12 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# Path where Render mounts the secret file
+dotenv_path = '/etc/secrets/.env'
+loaded = load_dotenv(dotenv_path=dotenv_path)
+if not loaded:
+     # Fallback in case it's mounted at root instead
+     load_dotenv()
 # Add this near the top of your script
 warnings.filterwarnings("ignore", message=r"Model .* is not found. The cost will be 0.*")
 
@@ -901,7 +906,7 @@ if __name__ == "__main__":
 
     #print("User: You are looking awesome today")
     #print()
-    #response = asyncio.run(run_prediction_analysis("Give me credibility scores for @elonmusk"))
+    response = asyncio.run(run_prediction_analysis("Give me credibility scores for @elonmusk"))
 
     print("Response from prediction analysis:")
     print(response)

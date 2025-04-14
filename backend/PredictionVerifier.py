@@ -5,7 +5,12 @@ import re
 import os 
 from datura_py import Datura
 import time
-
+from dotenv import load_dotenv
+dotenv_path = '/etc/secrets/.env'
+loaded = load_dotenv(dotenv_path=dotenv_path)
+if not loaded:
+     # Fallback in case it's mounted at root instead
+     load_dotenv()
 # Initialise environment variables
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-2024-08-06")
 

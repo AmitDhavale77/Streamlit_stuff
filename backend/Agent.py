@@ -3,6 +3,12 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_core import CancellationToken
 import os 
+from dotenv import load_dotenv
+dotenv_path = '/etc/secrets/.env'
+loaded = load_dotenv(dotenv_path=dotenv_path)
+if not loaded:
+     # Fallback in case it's mounted at root instead
+     load_dotenv()
 
 # Initialize the API keys and URLs
 OPEN_AI_KEY = os.environ.get("OPEN_AI_KEY")
