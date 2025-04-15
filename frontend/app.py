@@ -162,6 +162,9 @@ if prompt:
 
     print("Limited History:", limited_history)
     # Convert the LIMITED history to the format expected by your agent
+    print("Limited History for Agent:")
+    for m in limited_history:
+        print(f"{m['role']}: {m['content']}")
     text_messages_for_agent = [
         # Assuming TextMessage takes content and source)
         TextMessage(content=m["content"], source=m["role"]) # Adjust 'role' if it expects 'source' etc.
