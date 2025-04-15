@@ -136,8 +136,19 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"], avatar=avatar_assistant if message["role"] == "assistant" else avatar_user):
         st.markdown(message["content"])
 
+# --- Add a flag in session state to prevent double input ---
+if "is_waiting" not in st.session_state:
+    st.session_state.is_waiting = False
+
 # --- Handle User Input ---
-if prompt := st.chat_input("Type your Query"):
+prompt_disabled = st.session_state.is_waiting  # Disable input if waiting for a response
+prompt = st.chat_input("Type your Query", disabled=prompt_disabled)
+
+# --- Handle User Input ---
+if prompt:
+    # --- Set waiting flag to True ---
+    st.session_state.is_waiting = True
+
     # 1. Append user message to FULL history (for display)
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar=avatar_user):
@@ -168,6 +179,8 @@ if prompt := st.chat_input("Type your Query"):
             st.error(f"An error occurred: {e}")
             response = "Sorry, I encountered an error." # Provide a fallback response
             placeholder.markdown(response)
+            st.session_state.clear()
+            st.rerun()
 
 
     # 4. Append assistant response to FULL history (for display)
@@ -175,3 +188,6 @@ if prompt := st.chat_input("Type your Query"):
 
     # 5. Optional: Rerun to ensure the latest message is displayed immediately if needed
     # st.rerun() # Usually not needed as Streamlit handles updates, but can force it.
+
+    # --- Reset waiting flag ---
+    st.session_state.is_waiting = False

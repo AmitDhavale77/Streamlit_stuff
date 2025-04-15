@@ -1,7 +1,7 @@
 from typing import List, Dict
 import asyncio 
 import requests
-from backend.PredictionVerifier import PredictionVerifier
+from .PredictionVerifier import PredictionVerifier
 import re
 import json
 import os 
@@ -18,6 +18,11 @@ class PredictionProfiler:
         self.datura_api_url = datura_api_url
 
     async def build_user_profile(self, handle: str, max_retries: int = 5) -> Dict:
+        print(handle)
+
+        if handle.startswith("@"):
+            handle = handle[1:]
+
         """Fetch recent tweets from a specific user."""
         headers = {
             "Authorization": f"{self.datura_api_key}",
@@ -47,8 +52,7 @@ class PredictionProfiler:
                 print(len(tweets_ls), "tweets found")
                 if tweets_ls:
                     tweets = [tweet.get("text", "") for tweet in tweets_ls]
-                    raw_tweets = tweets_ls
-                    return {"tweets": tweets, "raw_tweets": raw_tweets}
+                    return {"tweets": tweets}
                 
             except requests.exceptions.RequestException as e:
                 return {"error": f"Failed to fetch tweets: {str(e)}", "tweets": []}
@@ -204,7 +208,7 @@ class PredictionProfiler:
         user_data = await self.build_user_profile(handle)
         
         if "error" in user_data:
-            return {user_data["error"]}
+            return {"error": user_data["error"]}
         
         # Filter predictions
         prediction_outcomes = await self.filter_predictions(user_data["tweets"])
@@ -240,6 +244,8 @@ class PredictionProfiler:
         profile = await self.build_profile(handle)
 
         if "error" in profile:
+            print("This sucks")
+            print("Error in profile:", profile["error"])
             return {"error": profile["error"]}
 
         if not profile["prediction_tweets"]:
