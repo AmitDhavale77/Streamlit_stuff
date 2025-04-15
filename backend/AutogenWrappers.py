@@ -44,7 +44,7 @@ def build_profiles_wrapper(handles: List[str]):
     print("Building profiles...")
     return asyncio.run(predictor_profiler.build_profiles(handles))
 
-def  calculate_credibility_scores_batch_wrapper(handles: List[str]):
+def calculate_credibility_scores_batch_wrapper(handles: List[str]):
     print("Calculating credibility scores for batch...")
     """Wrapper for the calculate_credibility_scores_batch function"""
     return asyncio.run(predictor_profiler.calculate_credibility_scores_batch(handles, prediction_verifier))

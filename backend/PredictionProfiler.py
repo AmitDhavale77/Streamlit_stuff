@@ -30,23 +30,24 @@ class PredictionProfiler:
         }
         
         params = {
-            "query": f"from:{handle}",
-            "sort": "Top",
-            "lang": "en",
-            "verified": False,
-            "blue_verified": False,
-            "is_quote": False,
-            "is_video": False,
-            "is_image": False,
-            "min_retweets": 0,
-            "min_replies": 0,
-            "min_likes": 0,
+            "user": handle,
+            # "query": "until:2024-11-28",
+            # "sort": "Top",
+            # "lang": "en",
+            # "verified": False,
+            # "blue_verified": False,
+            # "is_quote": False,
+            # "is_video": False,
+            # "is_image": False,
+            # "min_retweets": 0,
+            # "min_replies": 0,
+            # "min_likes": 0,
             "count": 30  #100
         }
         
         for attempt in range(max_retries):
             try:
-                response = await asyncio.to_thread(requests.get, self.datura_api_url, params=params, headers=headers)
+                response = await asyncio.to_thread(requests.get, "https://apis.datura.ai/twitter/post/user", params=params, headers=headers)
                 response.raise_for_status()
                 tweets_ls = response.json()
                 print(len(tweets_ls), "tweets found")
