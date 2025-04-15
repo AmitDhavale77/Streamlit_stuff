@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 #      # Fallback in case it's mounted at root instead
 #      load_dotenv()
 # --- Configuration ---
-MAX_HISTORY_TURNS = 2 # Keep last 5 pairs (user+assistant) for context
+MAX_HISTORY_TURNS = 5 # Keep last 5 pairs (user+assistant) for context
 
 os.environ["AUTOGEN_DEBUG"] = "0"  # Basic debug info
 os.environ["AUTOGEN_VERBOSE"] = "0"  # More detailed logging
@@ -157,7 +157,7 @@ if prompt:
     # 2. Prepare the LIMITED history to send to the agent
     # Keep only the last N messages (user + assistant pairs)
     # Multiply by 2 for pairs, add 1 if you always want the initial system message if any
-    history_limit = MAX_HISTORY_TURNS * 2
+    history_limit = MAX_HISTORY_TURNS * 0
     limited_history = st.session_state.messages[-history_limit:]
 
     print("Limited History:", limited_history)
