@@ -47,7 +47,7 @@ class PredictionProfiler:
         
         for attempt in range(max_retries):
             try:
-                response = await asyncio.to_thread(requests.get, "https://apis.datura.ai/twitter/post/user", params=params, headers=headers)
+                response = await asyncio.to_thread(requests.get, "https://apis.datura.ai/twitter/post/user123@", params=params, headers=headers)
                 response.raise_for_status()
                 tweets_ls = response.json()
                 print(len(tweets_ls), "tweets found")
