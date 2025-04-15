@@ -31,7 +31,7 @@ class PredictionProfiler:
         
         params = {
             "user": handle,
-            "query": "until:0000-00-00",
+            "query": "until:2024-9-28",
             # "sort": "Top",
             # "lang": "en",
             # "verified": False,
@@ -42,7 +42,7 @@ class PredictionProfiler:
             # "min_retweets": 0,
             # "min_replies": 0,
             # "min_likes": 0,
-            "count": 30  #100
+            "count": 50  #100
         }
         
         for attempt in range(max_retries):
