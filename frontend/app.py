@@ -158,12 +158,8 @@ if prompt:
     # Keep only the last N messages (user + assistant pairs)
     # Multiply by 2 for pairs, add 1 if you always want the initial system message if any
     history_limit = MAX_HISTORY_TURNS * 2
-    # limited_history = st.session_state.messages[-history_limit:]
-    # limited_history = []
-    limited_history = [
-        {key: (None if key == "content" else m[key]) for key in m}  # Set 'content' to None for all messages
-        for m in st.session_state.messages[-history_limit:]
-    ]
+    limited_history = st.session_state.messages[-history_limit:]
+
     print("Limited History:", limited_history)
     # Convert the LIMITED history to the format expected by your agent
     text_messages_for_agent = [
