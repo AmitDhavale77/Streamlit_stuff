@@ -900,7 +900,7 @@ if __name__ == "__main__":
 
     print("User: Hello")
     print()
-    #response = asyncio.run(run_prediction_analysis("Given me predictions on Will trump lower tariffs on china in april?"))
+    response = asyncio.run(run_prediction_analysis("Given me predictions on Will trump lower tariffs on china in april?"))
 
     # print("Response from prediction analysis:")
     # print(response)
