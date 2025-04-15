@@ -32,16 +32,6 @@ class PredictionProfiler:
         params = {
             "user": handle,
             "query": "until:2024-9-28",
-            # "sort": "Top",
-            # "lang": "en",
-            # "verified": False,
-            # "blue_verified": False,
-            # "is_quote": False,
-            # "is_video": False,
-            # "is_image": False,
-            # "min_retweets": 0,
-            # "min_replies": 0,
-            # "min_likes": 0,
             "count": 50  #100
         }
         
@@ -71,31 +61,33 @@ class PredictionProfiler:
         
         system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
 
-        **Definitions:**
-        1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
-        2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
+**Definitions:**
+1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
+2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
 
-        **Polymarket Topics Include:**
-        - Elections, legislation, court rulings
-        - Policy changes (tariffs, regulations)
-        - Business decisions (company moves, market impacts)
-        - Geopolitical events (wars, treaties, sanctions)
-        - Legal/Investigative outcomes (prosecutions, declassifications)
+**Polymarket Topics Include:**
+- Elections, legislation, court rulings
+- Policy changes (tariffs, regulations)
+- Business decisions (company moves, market impacts)
+- Geopolitical events (wars, treaties, sanctions)
+- Legal/Investigative outcomes (prosecutions, declassifications)
 
-        **Exclude:**
-        - Past events (unless they imply future consequences)
-        - Pure opinions without forecastable outcomes
-        - Non-actionable statements (e.g., 'People are struggling')
+**Exclude:**
+- Pure opinions without forecastable outcomes
+- Non-actionable statements (e.g., 'People are struggling')
+- **Past events** should be considered **relevant if they imply a future consequence**, such as historical decisions, past legislative actions, or judicial rulings with a future impact.
 
-        **Examples:**
-        - 'Trump will win in 2024' → **Yes (Explicit)**
-        - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
-        - 'The economy is collapsing' → **No (No actionable prediction)**
+**Examples:**
+- 'Trump will win in 2024' → **Yes (Explicit)**
+- 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
+- 'The economy is collapsing' → **No (No actionable prediction)**
+- 'The Brexit vote has already happened, but it will still have major economic effects' → **Yes (Implicit)**
+- 'The Supreme Court ruling on abortion rights will influence elections in 2024' → **Yes (Implicit)**
 
-        **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket, else **'No'**. Respond *only* with a JSON object like:
-        {
-        "predictions": ["Yes", "No", ...]
-        }
+**Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket, even if referring to past events with forecastable future impacts. If there is no prediction or actionable future outcome, return **'No'**. Respond *only* with a JSON object like:
+{
+"predictions": ["Yes", "No", ...]
+}
         """
         
         response = await asyncio.to_thread(self.groq_client.chat.completions.create,
