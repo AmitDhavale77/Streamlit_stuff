@@ -7,11 +7,11 @@ from typing import List
 import os 
 from openai import OpenAI
 from dotenv import load_dotenv
-dotenv_path = '/etc/secrets/.env'
-loaded = load_dotenv(dotenv_path=dotenv_path)
-if not loaded:
-     # Fallback in case it's mounted at root instead
-     load_dotenv()
+# dotenv_path = '/etc/secrets/.env'
+# loaded = load_dotenv(dotenv_path=dotenv_path)
+# if not loaded:
+#      # Fallback in case it's mounted at root instead
+#      load_dotenv()
 # Initialize the API keys and URLs
 DATURA_API_KEY = os.environ.get("DATURA_API_KEY")
 NEWS_API_TOKEN = os.environ.get("NEWS_API_TOKEN")

@@ -8,11 +8,11 @@ import warnings
 from autogen_agentchat.messages import TextMessage
 import sys 
 from dotenv import load_dotenv
-dotenv_path = '"C:\Amit_Laptop_backup\Imperial_essentials\AI Society\Hackathon Torus\.env"'
-loaded = load_dotenv(dotenv_path=dotenv_path)
-if not loaded:
-     # Fallback in case it's mounted at root instead
-     load_dotenv()
+# dotenv_path = '"C:\Amit_Laptop_backup\Imperial_essentials\AI Society\Hackathon Torus\.env"'
+# loaded = load_dotenv(dotenv_path=dotenv_path)
+# if not loaded:
+#      # Fallback in case it's mounted at root instead
+#      load_dotenv()
 # --- Configuration ---
 MAX_HISTORY_TURNS = 5 # Keep last 5 pairs (user+assistant) for context
 
