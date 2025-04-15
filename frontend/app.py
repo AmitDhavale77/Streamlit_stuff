@@ -159,15 +159,11 @@ if prompt:
     # Multiply by 2 for pairs, add 1 if you always want the initial system message if any
     history_limit = MAX_HISTORY_TURNS * 2
     # limited_history = st.session_state.messages[-history_limit:]
-    limited_history = []
-    for m in st.session_state.messages[-history_limit:]:
-        if m.get("role") == "tool":
-            # Break it by emptying the content
-            broken_tool_msg = m.copy()
-            broken_tool_msg["content"] = ""  # or `None` if you want to test that too
-            limited_history.append(broken_tool_msg)
-        else:
-            limited_history.append(m)
+    # limited_history = []
+    limited_history = [
+        {key: None for key in m}  # Same keys, but all values are None
+        for m in st.session_state.messages[-history_limit:]
+    ]
     print("Limited History:", limited_history)
     # Convert the LIMITED history to the format expected by your agent
     text_messages_for_agent = [
