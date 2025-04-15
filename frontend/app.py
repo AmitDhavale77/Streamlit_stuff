@@ -161,7 +161,7 @@ if prompt:
     # limited_history = st.session_state.messages[-history_limit:]
     # limited_history = []
     limited_history = [
-        {key: None for key in m}  # Same keys, but all values are None
+        {key: (None if key == "content" else m[key]) for key in m}  # Set 'content' to None for all messages
         for m in st.session_state.messages[-history_limit:]
     ]
     print("Limited History:", limited_history)
