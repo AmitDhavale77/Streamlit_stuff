@@ -8,7 +8,7 @@ import os
 
 # Initialize environment variables
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-2024-08-06")
-
+MODEL_NAME1 = os.getenv("MODEL_NAME1", "gpt-4o-mini-2024-07-18")
 # ============ COMPONENT 2: PREDICTOR PROFILE BUILDER ============
 
 class PredictionProfiler:
@@ -102,7 +102,7 @@ class PredictionProfiler:
             """
             
             response = await asyncio.to_thread(self.groq_client.chat.completions.create,
-                model=MODEL_NAME,
+                model=MODEL_NAME1,
                 messages=[{"role": "system", "content": system_context},
                         {"role": "user", "content": batch_tweet_list}]
             )
