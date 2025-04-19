@@ -54,64 +54,81 @@ class PredictionProfiler:
         return {"error": "Invalid Username. No tweets found after 5 attempts.", "tweets": []}
 
     async def filter_predictions(self, tweets: List[str]) -> Dict:
-        """Filter tweets to only include predictions."""
-        # tweets = tweets[:30]  # Limit to 30 tweets for analysis
-
-        tweet_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tweets)])
+        """Filter tweets to only include predictions, processing in batches of 25."""
+        # Initialize an empty list to store all prediction results
+        all_predictions = []
+        batch_size = 25
         
-        system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
+        # Process tweets in batches of 25
+        for i in range(0, len(tweets), batch_size):
+            batch_tweets = tweets[i:i+batch_size]
+            batch_tweet_list = "\n".join([f"{j+1}. {t}" for j, t in enumerate(batch_tweets)])
+            
+            system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
 
-        **Definitions:**
-        1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
-        2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
+            **Definitions:**
+            1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
+            2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
 
-        **Polymarket Topics Include:**
-        - Elections, legislation, court rulings
-        - Policy changes (tariffs, regulations)
-        - Business decisions (company moves, market impacts)
-        - Geopolitical events (wars, treaties, sanctions)
-        - Legal/Investigative outcomes (prosecutions, declassifications)
+            **Polymarket Topics Include:**
+            - Elections, legislation, court rulings
+            - Policy changes (tariffs, regulations)
+            - Business decisions (company moves, market impacts)
+            - Geopolitical events (wars, treaties, sanctions)
+            - Legal/Investigative outcomes (prosecutions, declassifications)
 
-        **Exclude:**
-        - Past events (unless they imply future consequences)
-        - Pure opinions without forecastable outcomes
-        - Non-actionable statements (e.g., 'People are struggling')
+            **Exclude:**
+            - Past events (unless they imply future consequences)
+            - Pure opinions without forecastable outcomes
+            - Non-actionable statements (e.g., 'People are struggling')
 
-        **Examples:**
-        - 'Trump will win in 2024' → **Yes (Explicit)**
-        - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
-        - 'The economy is collapsing' → **No (No actionable prediction)**
+            **Examples:**
+            - 'Trump will win in 2024' → **Yes (Explicit)**
+            - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
+            - "Nikki Haley is gaining ground in Iowa polls." → Yes (Implicit) (implies prediction market relevance)
+            - "Senate to vote on crypto regulation bill next week." → Yes (Implicit)
+            - "Will Russia use nuclear weapons in 2024?" → Yes (Explicit)
+            - "Israel expected to launch ground invasion of Gaza." → Yes (Implicit)
+            - "Elon Musk hints at stepping down as Twitter CEO." → Yes (Implicit)
+            - 'The economy is collapsing' → **No (No actionable prediction)**
+            - "I miss when politicians actually cared about the people." → No (opinion, not predictive)
+            - "The economy crashed last year and it's all downhill from here." → No (past event, vague future implication)
+            - "Climate change is real." → No (statement, no actionable prediction)
 
-        **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket, else **'No'**. Respond *only* with a JSON object like:
-        {
-        "predictions": ["Yes", "No", ...]
+            **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket. Respond *only* with a JSON object like:
+            {
+            "predictions": ["Yes", "No", ...]
+            }
+            """
+            
+            response = await asyncio.to_thread(self.groq_client.chat.completions.create,
+                model=MODEL_NAME,
+                messages=[{"role": "system", "content": system_context},
+                        {"role": "user", "content": batch_tweet_list}]
+            )
+            
+            raw_output = response.choices[0].message.content
+            print("raw_output", raw_output)
+            raw_output = re.sub(r"^```(json)?|```$", "", raw_output).strip()
+            # Step 2: Extract JSON Content (if extra text exists)
+            match = re.search(r"\{.*\}", raw_output, re.DOTALL)
+            if match:
+                raw_output = match.group(0)  # Extract only the JSON content
+            
+            try:
+                parsed = json.loads(raw_output.encode().decode('utf-8-sig'))  # Removes BOM if present
+                # Extend the all_predictions list with the batch results
+                all_predictions.extend(parsed.get("predictions", []))
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse LLM response for batch {i//batch_size + 1}:")
+                print(raw_output)
+                # If parsing fails, add "No" for each tweet in the batch as a fallback
+                all_predictions.extend(["No"] * len(batch_tweets))
+        
+        # Return combined results in the expected format
+        return {
+            "predictions": all_predictions,
         }
-        """
-        
-        response = await asyncio.to_thread(self.groq_client.chat.completions.create,
-            model=MODEL_NAME,
-            messages=[{"role": "system", "content": system_context},
-                      {"role": "user", "content": tweet_list}]
-        )
-
-        raw_output = response.choices[0].message.content
-
-        raw_output = re.sub(r"^```(json)?|```$", "", raw_output).strip()
-
-        # Step 2: Extract JSON Content (if extra text exists)
-        match = re.search(r"\{.*\}", raw_output, re.DOTALL)
-        if match:
-            raw_output = match.group(0)  # Extract only the JSON content
-
-        try:
-            # Step 3: Ensure valid encoding and parse JSON
-            parsed = json.loads(raw_output.encode().decode('utf-8-sig'))  # Removes BOM if present
-            return {"predictions": parsed.get("predictions", [])}
-
-        except json.JSONDecodeError as e:
-            print("JSON Decode Error:", str(e))
-            print("Raw LLM Output:", repr(raw_output))  # Show raw output to debug
-            raise e
         # raw_output = response.choices[0].message.content
         
         # # Remove markdown wrapping if present
