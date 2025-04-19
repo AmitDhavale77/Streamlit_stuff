@@ -32,7 +32,7 @@ class PredictionProfiler:
         params = {
             "user": handle,
             "query": "until:2024-9-28",
-            "count": 50  #100
+            "count": 100  #100
         }
         
         for attempt in range(max_retries):
