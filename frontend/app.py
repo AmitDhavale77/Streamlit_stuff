@@ -169,7 +169,7 @@ if prompt:
         # Assuming TextMessage takes content and source)
         TextMessage(content=m["content"], source=m["role"]) # Adjust 'role' if it expects 'source' etc.
         for m in limited_history
-    ]
+    ]   
 
     # 3. Call the agent with the LIMITED history
     with st.chat_message("assistant", avatar=avatar_assistant):

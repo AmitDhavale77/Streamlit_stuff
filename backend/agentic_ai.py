@@ -19,11 +19,11 @@ from dotenv import load_dotenv
 import os
 
 # Path where Render mounts the secret file
-# dotenv_path = '/etc/secrets/.env'
-# loaded = load_dotenv(dotenv_path=dotenv_path)
-# if not loaded:
-#      # Fallback in case it's mounted at root instead
-#      load_dotenv()
+dotenv_path = "C:\Amit_Laptop_backup\Imperial_essentials\AI Society\Hackathon Torus\.env"
+loaded = load_dotenv(dotenv_path=dotenv_path)
+if not loaded:
+     # Fallback in case it's mounted at root instead
+     load_dotenv()
 # Add this near the top of your script
 load_dotenv()
 warnings.filterwarnings("ignore", message=r"Model .* is not found. The cost will be 0.*")
@@ -813,7 +813,6 @@ function_definitions = [
         }
     }
 ]
-
 
 tools_schema = [func_def for func_def in function_definitions]
 
