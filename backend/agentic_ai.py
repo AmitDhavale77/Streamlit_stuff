@@ -17,6 +17,8 @@ from autogen_core import CancellationToken
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from dotenv import load_dotenv
 import os
+import time
+from datura_py import Datura
 
 # Path where Render mounts the secret file
 dotenv_path = "C:\Amit_Laptop_backup\Imperial_essentials\AI Society\Hackathon Torus\.env"
@@ -41,6 +43,7 @@ GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
 OPEN_AI_KEY = os.getenv("OPEN_AI_KEY")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-2024-08-06")
+MODEL_NAME1 = os.getenv("MODEL_NAME", "gpt-4o-mini-2024-07-18")  
 DATURA_API_URL = "https://apis.datura.ai/twitter"
 
 client = OpenAI(
@@ -101,13 +104,11 @@ Now, given the following user prompt, generate a properly formatted Datura API q
         
         return completion.choices[0].message.content.strip()
 
-    async def get_tweets(self, query: str, min_likes: int = 0, count: int = 100, max_retries = 5) -> List[Dict]:
-        #Fetch tweets from Datura API based on the generated query.
-
-        url = "https://apis.datura.ai/desearch/ai/search/links/twitter"
+    async def get_tweets(self, user_prompt: str, min_likes: int = 0, count: int = 100, max_retries = 5) -> List[Dict]:
+        #Fetch tweets from Datura API based on the user prompt.
 
         payload = {
-            "prompt": query,
+            "prompt": user_prompt,
             "model": "HORIZON",
             "start_date": "2024-04-10",
             "lang": "en",
@@ -130,9 +131,8 @@ Now, given the following user prompt, generate a properly formatted Datura API q
         for attempt in range(max_retries):
             try:
                 #print(f"🔁 Attempt {attempt + 1} to fetch tweets...")
-                response = await asyncio.to_thread(requests.post, url=url, json=payload, headers=headers)
+                response = await asyncio.to_thread(requests.post, url=self.datura_api_url, json=payload, headers=headers)
                 response.raise_for_status()
-                #print("✅ Response received.")
                 data = response.json()
                 tweets_ls = data.get("miner_tweets", [])
                 #print(tweets_ls)
@@ -167,6 +167,7 @@ Now, given the following user prompt, generate a properly formatted Datura API q
                 "tweet_text": tweet["text"],
                 "like_count": tweet["like_count"],
                 "created_at": tweet["created_at"],
+                "tweet url": tweet["url"],
             }
             
             username_to_tweet[tweet["user"]["username"]] = tweet["text"]
@@ -266,39 +267,51 @@ class PredictionVerifier:
         self.news_api_token = news_api_token
         self.google_api_key = google_api_key
         self.google_cse_id = google_cse_id
+        self.datura = Datura(api_key=DATURA_API_KEY)
     
     def fetch_google_results(self, query: str) -> List[Dict]:
         """Fetch search results from Google Custom Search API."""
         google_url = f"https://www.googleapis.com/customsearch/v1?q={query}&key={self.google_api_key}&cx={self.google_cse_id}&num=3"
         
         response = requests.get(google_url)
+        # print("Google URL", response)
         if response.status_code == 200:
             data = response.json()
-            return data.get("items", [])
+            # print("Google data", data)
+            print("Capturing the data", data.get("data", []))
+            return data.get("items", [])[:2]
+        
         return []
-    
+
     def generate_search_query(self, prediction_query: str) -> str:
-        """Generate a search query for news APIs based on the prediction."""
+        """Generate a concise question-style search query from a multi-paragraph prediction tweet."""
         context = """
-        You are an expert in constructing search queries for news APIs to find relevant articles related to political predictions.
-        Your task is to generate a properly formatted query for searching news related to a given prediction.
+        You are an expert at analyzing long prediction tweets (2-3 paragraphs) and extracting the core prediction to create concise, question-style search queries for Perplexica.
+
+        Guidelines:
+        1. Read the entire tweet carefully, focusing on the main prediction
+        2. Identify the key subject, event, and timeframe
+        3. Ignore supporting arguments or explanations
+        4. Convert the core prediction into a natural-sounding question
+        5. Keep it under 15 words when possible
 
         Examples:
-        1. Prediction: 'Chances of UK leaving the European Union in 2016 was 52%'
-           Query: Brexit, UK, European Union, 2016
+        1. Prediction tweet: 'After analyzing market trends and political indicators, I believe there's a 52% chance that the UK will vote to leave the European Union in the 2016 referendum. This accounts for... [2 more paragraphs]'
+        Query: What were the chances of Brexit happening in 2016?
 
-        2. Prediction: 'Chances of Donald Trump winning the 2016 US Presidential Election was 30%'
-           Query: Donald Trump, elections, 2024
+        2. Prediction tweet: 'Considering current polling data and historical trends, my model shows a 30% probability that Donald Trump could win the 2016 US Presidential Election. Factors include... [3 paragraphs]'
+        Query: Was Trump likely to win the 2016 election?
 
-        3. Prediction: 'Chances of Apple's iPhone revolutionizing the smartphone industry in 2007 was 80%'
-           Query: Apple, iPhone, smartphone, 2007
+        3. Prediction tweet: 'Based on early adoption rates and technology reviews, there's an 80% probability that Apple's iPhone will revolutionize the smartphone industry when it launches in 2007. [2 more paragraphs explaining]'
+        Query: Did experts predict iPhone's success in 2007?
 
-        4. Prediction: 'Chances of India winning T20 Cricket WorldCup Final in 2024 was 52%'
-           Query: India, T20, Cricket World Cup, Winner, 2024
+        4. Prediction tweet: 'After evaluating team performance and tournament statistics, I estimate India has a 52% chance of winning the T20 Cricket World Cup Final in 2024. The analysis shows... [3 paragraphs]'
+        Query: Were India favorites for the 2024 T20 World Cup?
 
-        5. Prediction: 'Chances of Bitcoin reaching $100,000 in 2021 was 40%'
-           Query: Bitcoin, price, cryptocurrency, $100,000, 2021
-        Now, generate a query for the following prediction: (Only generate query and no additional text or explanation.)
+        5. Prediction tweet: 'Cryptocurrency volatility patterns suggest a 40% probability Bitcoin could reach $100,000 by December 2021. My model accounts for... [2 paragraphs of technical analysis]'
+        Query: Could Bitcoin hit $100k in 2021?
+
+        Now generate a concise question query (only the question, no extra text) for this prediction tweet:
         """
         
         completion = self.groq_client.chat.completions.create(
@@ -310,50 +323,64 @@ class PredictionVerifier:
         )
         
         return completion.choices[0].message.content.strip()
-    
+
     def fetch_news_articles(self, search_query: str) -> List[Dict]:
-        """Fetch news articles related to the prediction."""
-        encoded_keywords = re.sub(r'[^\w\s]', '', search_query).replace(' ', '+')
-        
-        news_url = (
-            f"https://api.thenewsapi.com/v1/news/all?"
-            f"api_token={self.news_api_token}"
-            f"&search={encoded_keywords}"
-            f"&search_fields=title,main_text,description,keywords"
-            f"&language=en"
-            f"&published_after=2024-01-01"
-            f"&sort=relevance_score"
-        )
-        
-        news_response = requests.get(news_url)
-        if news_response.status_code == 200:
-            news_data = news_response.json()
-            return news_data.get("data", [])
+        """Fetch news articles related to the prediction, with up to 5 retries."""
+
+        max_retries = 5
+        delay = 1  # Start with 1 second delay
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = self.datura.basic_web_search(
+                    query=search_query,
+                    num=5,
+                    start=1
+                )
+
+                data = result.get("data", [])
+
+                print(f"Attempt {attempt}: Captured data ->", data)
+
+                if data:  # If we got results, return them
+                    return data
+
+            except Exception as e:
+                print(f"Attempt {attempt} failed with error: {e}")
+
+            # If we're not on the last attempt, wait and retry
+            if attempt < max_retries:
+                time.sleep(delay)
+                delay *= 2  # Optional: exponential backoff
+
+        # After all retries fail
+        print("All attempts failed. Returning empty list.")
         return []
-    
+
     def analyze_verification(self, prediction_query: str, all_sources: List[Dict]) -> Dict:
         """Analyze the sources to determine if the prediction was accurate."""
         article_summaries = "\n".join(
-            [f"Title: {src['title']}, Source: {src['source']}, Description: {src['description']}, Snippet: {src['snippet']}" for src in all_sources]
+            [f"Title: {src['title']}, Source: {src['source']}, Description: {src['description']}" for src in all_sources]
         )
 
+        print("Okay analyze_verification")
         system_prompt = """
-        You are an AI analyst verifying predictions for Polymarket, a prediction market where users bet on real-world outcomes. Your task is to classify claims as TRUE, FALSE, or UNCERTAIN **only when evidence is insufficient**.
+        You are an AI analyst verifying predictions for Polymarket, a prediction market where users bet on real-world outcomes. Your task is to classify claims as TRUE, FALSE, or UNCERTAIN *only when evidence is insufficient*.
 
         ### Rules:
-        1. **Classification Criteria**:
-        - `TRUE`: The news articles **conclusively confirm** the prediction happened (e.g., "Bill passed" → voting records show it passed).
-        - `FALSE`: The news articles **conclusively disprove** the prediction (e.g., "Company will move HQ" → CEO denies it).
-        - `UNCERTAIN`: **Only if** evidence is missing, conflicting, or outdated (e.g., no articles after the predicted event date).
+        1. *Classification Criteria*:
+        - ⁠ TRUE ⁠: The news articles *conclusively confirm* the prediction happened (e.g., "Bill passed" → voting records show it passed).
+        - ⁠ FALSE ⁠: The news articles *conclusively disprove* the prediction (e.g., "Company will move HQ" → CEO denies it).
+        - ⁠ UNCERTAIN ⁠: *Only if* evidence is missing, conflicting, or outdated (e.g., no articles after the predicted event date).
 
-        2. **Evidence Standards**:
-        - Prioritize **recent articles** (within 7 days of prediction date).
-        - Trust **primary sources** (government releases, official statements) over opinion pieces.
+        2. *Evidence Standards*:
+        - Prioritize *recent articles* (within 7 days of prediction date).
+        - Trust *primary sources* (government releases, official statements) over opinion pieces.
         - Ignore irrelevant or off-topic articles.
 
-        3. **Conflict Handling**:
+        3. *Conflict Handling*:
         - If sources conflict, weigh authoritative sources (e.g., Reuters) higher than fringe outlets.
-        - If timing is unclear (e.g., "will happen next week" but no update), default to `UNCERTAIN`.
+        - If timing is unclear (e.g., "will happen next week" but no update), default to ⁠ UNCERTAIN ⁠.
         
         """       
 
@@ -364,14 +391,14 @@ class PredictionVerifier:
         {article_summaries}
 
         Based on this data, determine if the prediction was accurate. 
-        Summarize the key evidence and provide the output in **JSON format** with the following structure:
+        Summarize the key evidence and provide the output in *JSON format* with the following structure:
 
         {{
           "result": "TRUE/FALSE/UNCERTAIN",
           "summary": "Brief explanation of why the claim is classified as TRUE, FALSE, or UNCERTAIN based on the news articles."
         }}
 
-        Ensure the response is **valid JSON** with no additional text.
+        Ensure the response is *valid JSON* with no additional text.
         """
         
         ai_verification = self.groq_client.chat.completions.create(
@@ -384,6 +411,7 @@ class PredictionVerifier:
         
         match = re.search(r"\{(.*)\}", ai_verification.choices[0].message.content, re.DOTALL)
         if match:
+            print("Match found")
             ai_verification_result = "{" + match.group(1) + "}"
             try:
                 return json.loads(ai_verification_result)
@@ -402,31 +430,37 @@ class PredictionVerifier:
         """Main method to verify a prediction."""
         # Generate search query
         search_query = self.generate_search_query(prediction_query)
+        # search_query = prediction_query
         print(f"Generated Search Query: {search_query}")
         
         # Fetch news articles
         articles = self.fetch_news_articles(search_query)
-        
+        # print("articles", articles)
         # Fetch Google search results
-        google_results = self.fetch_google_results(prediction_query)
+        google_results = self.fetch_google_results(search_query)
         
         # Prepare sources from both APIs
         all_sources = [
-            {"title": a['title'], "source": a['source'], "published": a['published_at'], "description": a['description'], "snippet": a['snippet']} for a in articles
+            {"title": a['title'], "source": a['link'], "description": a['snippet']} for a in articles
         ] + [
-            {"title": g['title'], "source": g['link'], "snippet": g['snippet'], "description": g.get('pagemap', {}).get('metatags', [{}])[0].get('og:description', '') if 'pagemap' in g else "", "published": "N/A"} for g in google_results
+            {"title": g['title'], "source": g['link'], "description": g['snippet']} for g in google_results
         ]
-        
+
+        # all_sources = [
+        #     {"title": g['title'], "source": g['link'], "snippet": g['snippet']} for g in google_results
+        # ]
+        # print("all_sources", all_sources)
         if not all_sources:
             return {
                 "result": "UNCERTAIN",
                 "summary": "No relevant information found to verify this prediction.",
                 "sources": []
             }
-        
+        # print("articles", articles)
+        print("all_sources", len(all_sources))
         # Analyze verification
         verification_data = self.analyze_verification(prediction_query, all_sources)
-        
+        print("Final result")
         # Final result
         final_result = {
             "result": verification_data["result"],
@@ -445,6 +479,11 @@ class PredictorProfiler:
         self.datura_api_url = datura_api_url
 
     async def build_user_profile(self, handle: str, max_retries: int = 5) -> Dict:
+        print(handle)
+
+        if handle.startswith("@"):
+            handle = handle[1:]
+
         """Fetch recent tweets from a specific user."""
         headers = {
             "Authorization": f"{self.datura_api_key}",
@@ -452,96 +491,283 @@ class PredictorProfiler:
         }
         
         params = {
-            "query": f"from:{handle}",
-            "sort": "Top",
-            "lang": "en",
-            "verified": True,
-            "blue_verified": True,
-            "is_quote": False,
-            "is_video": False,
-            "is_image": False,
-            "min_retweets": 0,
-            "min_replies": 0,
-            "min_likes": 0,
-            "count": 30  #100
+            "user": handle,
+            "query": "until:2024-9-28",
+            "count": 100  #100
         }
         
         for attempt in range(max_retries):
             try:
-                response = await asyncio.to_thread(requests.get, self.datura_api_url, params=params, headers=headers)
+                response = await asyncio.to_thread(requests.get, "https://apis.datura.ai/twitter/post/user", params=params, headers=headers)
                 response.raise_for_status()
                 tweets_ls = response.json()
                 print(len(tweets_ls), "tweets found")
                 if tweets_ls:
                     tweets = [tweet.get("text", "") for tweet in tweets_ls]
-                    raw_tweets = tweets_ls
-                    return {"tweets": tweets, "raw_tweets": raw_tweets}
+                    return {"tweets": tweets}
                 
             except requests.exceptions.RequestException as e:
-                return {"error": f"Failed to fetch tweets: {str(e)}", "tweets": [], "raw_tweets": []}
+                return {"error": f"Failed to fetch tweets: {str(e)}", "tweets": []}
             
             print(f"Attempt {attempt + 1} failed. Retrying...")
             await asyncio.sleep(2)
         
-        return {"error": "Invalid Username. No tweets found after 5 attempts.", "tweets": [], "raw_tweets": []}
+        return {"error": "Invalid Username. No tweets found after 5 attempts.", "tweets": []}
+    
+    # async def filter_predictions(self, tweets: List[str]) -> Dict:
+    #     """Filter tweets to only include predictions."""
+    #     # tweets = tweets[:30]  # Limit to 30 tweets for analysis
+
+    #     tweet_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tweets)])
+        
+    #     system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
+
+    #     **Definitions:**
+    #     1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
+    #     2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
+
+    #     **Polymarket Topics Include:**
+    #     - Elections, legislation, court rulings
+    #     - Policy changes (tariffs, regulations)
+    #     - Business decisions (company moves, market impacts)
+    #     - Geopolitical events (wars, treaties, sanctions)
+    #     - Legal/Investigative outcomes (prosecutions, declassifications)
+
+    #     **Exclude:**
+    #     - Past events (unless they imply future consequences)
+    #     - Pure opinions without forecastable outcomes
+    #     - Non-actionable statements (e.g., 'People are struggling')
+
+    #     **Examples:**
+    #     - 'Trump will win in 2024' → **Yes (Explicit)**
+    #     - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
+    #     - 'The economy is collapsing' → **No (No actionable prediction)**
+
+    #     **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket, else **'No'**. Respond *only* with a JSON object like:
+    #     {
+    #     "predictions": ["Yes", "No", ...]
+    #     }
+    #     """
+        
+    #     response = await asyncio.to_thread(self.groq_client.chat.completions.create,
+    #         model=MODEL_NAME,
+    #         messages=[{"role": "system", "content": system_context},
+    #                   {"role": "user", "content": tweet_list}]
+    #     )
+        
+    #     raw_output = response.choices[0].message.content
+        
+    #     # Remove markdown wrapping if present
+    #     if raw_output.startswith("\njson"):
+    #         raw_output = re.sub(r"\njson|\n", "", raw_output).strip()
+        
+    #     try:
+    #         parsed = json.loads(raw_output)
+    #         return {
+    #             "predictions": parsed.get("predictions", []),
+    #         }
+    #     except Exception as e:
+    #         print("Failed to parse LLM response:")
+    #         print(raw_output)
+    #         raise e
 
     async def filter_predictions(self, tweets: List[str]) -> Dict:
-        """Filter tweets to only include predictions."""
-        # tweets = tweets[:30]  # Limit to 30 tweets for analysis
-
-        tweet_list = "\n".join([f"{i+1}. {t}" for i, t in enumerate(tweets)])
+        """Filter tweets to only include predictions, processing in batches of 25."""
+        # Initialize an empty list to store all prediction results
+        all_predictions = []
+        batch_size = 25
         
-        system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
+        # Process tweets in batches of 25
+        for i in range(0, len(tweets), batch_size):
+            batch_tweets = tweets[i:i+batch_size]
+            batch_tweet_list = "\n".join([f"{j+1}. {t}" for j, t in enumerate(batch_tweets)])
+            
+            system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
 
-        **Definitions:**
-        1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
-        2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
+            **Definitions:**
+            1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
+            2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
 
-        **Polymarket Topics Include:**
-        - Elections, legislation, court rulings
-        - Policy changes (tariffs, regulations)
-        - Business decisions (company moves, market impacts)
-        - Geopolitical events (wars, treaties, sanctions)
-        - Legal/Investigative outcomes (prosecutions, declassifications)
+            **Polymarket Topics Include:**
+            - Elections, legislation, court rulings
+            - Policy changes (tariffs, regulations)
+            - Business decisions (company moves, market impacts)
+            - Geopolitical events (wars, treaties, sanctions)
+            - Legal/Investigative outcomes (prosecutions, declassifications)
 
-        **Exclude:**
-        - Past events (unless they imply future consequences)
-        - Pure opinions without forecastable outcomes
-        - Non-actionable statements (e.g., 'People are struggling')
+            **Exclude:**
+            - Past events (unless they imply future consequences)
+            - Pure opinions without forecastable outcomes
+            - Non-actionable statements (e.g., 'People are struggling')
 
-        **Examples:**
-        - 'Trump will win in 2024' → **Yes (Explicit)**
-        - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
-        - 'The economy is collapsing' → **No (No actionable prediction)**
+            **Examples:**
+            - 'Trump will win in 2024' → **Yes (Explicit)**
+            - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
+            - "Nikki Haley is gaining ground in Iowa polls." → Yes (Implicit) (implies prediction market relevance)
+            - "Senate to vote on crypto regulation bill next week." → Yes (Implicit)
+            - "Will Russia use nuclear weapons in 2024?" → Yes (Explicit)
+            - "Israel expected to launch ground invasion of Gaza." → Yes (Implicit)
+            - "Elon Musk hints at stepping down as Twitter CEO." → Yes (Implicit)
+            - 'The economy is collapsing' → **No (No actionable prediction)**
+            - "I miss when politicians actually cared about the people." → No (opinion, not predictive)
+            - "The economy crashed last year and it's all downhill from here." → No (past event, vague future implication)
+            - "Climate change is real." → No (statement, no actionable prediction)
 
-        **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket, else **'No'**. Respond *only* with a JSON object like:
-        {
-        "predictions": ["Yes", "No", ...]
-        }
-        """
-        
-        response = await asyncio.to_thread(self.groq_client.chat.completions.create,
-            model=MODEL_NAME,
-            messages=[{"role": "system", "content": system_context},
-                      {"role": "user", "content": tweet_list}]
-        )
-        
-        raw_output = response.choices[0].message.content
-        
-        # Remove markdown wrapping if present
-        if raw_output.startswith("\njson"):
-            raw_output = re.sub(r"\njson|\n", "", raw_output).strip()
-        
-        try:
-            parsed = json.loads(raw_output)
-            return {
-                "predictions": parsed.get("predictions", []),
+            **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket. Respond *only* with a JSON object like:
+            {
+            "predictions": ["Yes", "No", ...]
             }
-        except Exception as e:
-            print("Failed to parse LLM response:")
-            print(raw_output)
-            raise e
+            """
+            
+            response = await asyncio.to_thread(self.groq_client.chat.completions.create,
+                model=MODEL_NAME1,
+                messages=[{"role": "system", "content": system_context},
+                        {"role": "user", "content": batch_tweet_list}]
+            )
+            
+            raw_output = response.choices[0].message.content
+            print("raw_output", raw_output)
+            raw_output = re.sub(r"^```(json)?|```$", "", raw_output).strip()
+            # Step 2: Extract JSON Content (if extra text exists)
+            match = re.search(r"\{.*\}", raw_output, re.DOTALL)
+            if match:
+                raw_output = match.group(0)  # Extract only the JSON content
+            
+            try:
+                parsed = json.loads(raw_output.encode().decode('utf-8-sig'))  # Removes BOM if present
+                # Extend the all_predictions list with the batch results
+                all_predictions.extend(parsed.get("predictions", []))
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse LLM response for batch {i//batch_size + 1}:")
+                print(raw_output)
+                # If parsing fails, add "No" for each tweet in the batch as a fallback
+                all_predictions.extend(["No"] * len(batch_tweets))
+        
+        # Return combined results in the expected format
+        return {
+            "predictions": all_predictions,
+        }
 
+    # async def filter_predictions(self, tweets: List[str]) -> Dict:
+    #     """Filter tweets to only include predictions, processing in batches of 25 with a boosting second check."""
+    #     # Initialize an empty list to store all prediction results
+    #     all_predictions = []
+    #     batch_size = 25
+        
+    #     # Process tweets in batches of 25
+    #     for i in range(0, len(tweets), batch_size):
+    #         batch_tweets = tweets[i:i+batch_size]
+    #         batch_tweet_list = "\n".join([f"{j+1}. {t}" for j, t in enumerate(batch_tweets)])
+            
+    #         system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
+
+    #         **Definitions:**
+    #         1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
+    #         2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
+
+    #         **Polymarket Topics Include:**
+    #         - Elections, legislation, court rulings
+    #         - Policy changes (tariffs, regulations)
+    #         - Business decisions (company moves, market impacts)
+    #         - Geopolitical events (wars, treaties, sanctions)
+    #         - Legal/Investigative outcomes (prosecutions, declassifications)
+
+    #         **Exclude:**
+    #         - Past events (unless they imply future consequences)
+    #         - Pure opinions without forecastable outcomes
+    #         - Non-actionable statements (e.g., 'People are struggling')
+
+    #         **Examples:**
+    #         - 'Trump will win in 2024' → **Yes (Explicit)**
+    #         - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
+    #         - 'The economy is collapsing' → **No (No actionable prediction)**
+
+    #         **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket, else **'No'**. Respond *only* with a JSON object like:
+    #         {
+    #         "predictions": ["Yes", "No", ...]
+    #         }
+    #         """
+            
+    #         try:
+    #             response = await asyncio.to_thread(self.groq_client.chat.completions.create,
+    #                 model=MODEL_NAME,
+    #                 messages=[{"role": "system", "content": system_context},
+    #                         {"role": "user", "content": batch_tweet_list}]
+    #             )
+                
+    #             raw_output = response.choices[0].message.content
+                
+    #             print("raw_output", raw_output)
+    #             raw_output = re.sub(r"^```(json)?|```$", "", raw_output).strip()
+    #             # Step 2: Extract JSON Content (if extra text exists)
+    #             match = re.search(r"\{.*\}", raw_output, re.DOTALL)
+    #             if match:
+    #                 raw_output = match.group(0)  # Extract only the JSON content
+                
+    #             parsed = json.loads(raw_output.encode().decode('utf-8-sig'))
+    #             batch_predictions = parsed.get("predictions", [])
+                
+    #             # Second check (boosting) for tweets initially classified as "No"
+    #             no_indices = [j for j, pred in enumerate(batch_predictions) if pred == "No"]
+    #             if no_indices:
+    #                 no_tweets = [batch_tweets[j] for j in no_indices]
+                    
+    #                 # Only proceed if there are "No" predictions to recheck
+    #                 if no_tweets:
+    #                     no_tweet_list = "\n".join([f"{j+1}. {t}" for j, t in enumerate(no_tweets)])
+                        
+    #                     # More permissive context for the second check to catch subtle predictions
+    #                     boost_context = """You are reviewing tweets that were initially classified as NOT containing predictions. 
+    #                     Be more generous and look very carefully for ANY hint of prediction about future events or implicit forecasts.
+    #                     Even if the prediction is subtle or indirect, classify it as "Yes" if there's any reasonable interpretation as a prediction.
+                        
+    #                     **Examples of subtle predictions that should be "Yes":**
+    #                     - "Things don't look good for the bill" (implies prediction about bill's failure)
+    #                     - "Watch this space regarding the election" (implies upcoming election prediction)
+    #                     - "The market doesn't seem to be pricing this in yet" (implies future market movement)
+                        
+    #                     For each tweet, respond **'Yes'** if there's ANY possible prediction interpretation, else **'No'**.
+    #                     Respond *only* with a JSON object like:
+    #                     {
+    #                     "predictions": ["Yes", "No", ...]
+    #                     }
+    #                     """
+                        
+    #                     boost_response = await asyncio.to_thread(self.groq_client.chat.completions.create,
+    #                         model=MODEL_NAME,
+    #                         messages=[{"role": "system", "content": boost_context},
+    #                                 {"role": "user", "content": no_tweet_list}]
+    #                     )
+                        
+    #                     boost_output = boost_response.choices[0].message.content
+    #                     print("boost_output", boost_output)
+    #                     match = re.search(r"\{.*\}", boost_output, re.DOTALL)
+    #                     if match:
+    #                         boost_output = match.group(0)  # Extract only the JSON content
+                        
+    #                     boost_parsed = json.loads(boost_output.encode().decode('utf-8-sig'))                       
+  
+    #                     boost_predictions = boost_parsed.get("predictions", [])
+                        
+    #                     # Replace original "No" predictions with boosted results
+    #                     for k, idx in enumerate(no_indices):
+    #                         if k < len(boost_predictions) and boost_predictions[k] == "Yes":
+    #                             batch_predictions[idx] = "Yes"
+    #                             print(f"Boosted tweet to 'Yes': {batch_tweets[idx]}")
+                
+    #             # Add the batch predictions to the combined results
+    #             all_predictions.extend(batch_predictions)
+                
+    #         except Exception as e:
+    #             print(f"Failed to process batch {i//batch_size + 1}: {str(e)}")
+    #             # If processing fails, add "No" for each tweet in the batch as a fallback
+    #             all_predictions.extend(["No"] * len(batch_tweets))
+        
+    #     # Return combined results in the expected format
+    #     return {
+    #         "predictions": all_predictions,
+    #     }
+    
     async def apply_filter(self, tweets: List[str], outcomes: Dict) -> List[str]:
         """Apply prediction filter to tweets."""
         outcomes_list = outcomes["predictions"]
@@ -649,6 +875,8 @@ class PredictorProfiler:
         profile = await self.build_profile(handle)
 
         if "error" in profile:
+            print("This sucks")
+            print("Error in profile:", profile["error"])
             return {"error": profile["error"]}
 
         if not profile["prediction_tweets"]:
@@ -699,8 +927,8 @@ class PredictorProfiler:
             })
 
         # Calculate credibility score
-        if verification_stats["total"] > 0:
-            credibility_score = verification_stats["true"] / verification_stats["total"]
+        if verification_stats["total"] > 0 and (verification_stats["true"] + verification_stats["false"]) > 0:
+            credibility_score = verification_stats["true"] / (verification_stats["true"] + verification_stats["false"])
         else:
             credibility_score = 0.0
 
@@ -899,15 +1127,16 @@ if __name__ == "__main__":
 
     print("User: Hello")
     print()
-    response = asyncio.run(run_prediction_analysis("Given me predictions on Will trump lower tariffs on china in april?"))
-
-    # print("Response from prediction analysis:")
-    # print(response)
-
-    #print("User: You are looking awesome today")
-    #print()
-    response = asyncio.run(run_prediction_analysis("Give me credibility scores for @elonmusk"))
+    # response = asyncio.run(run_prediction_analysis("Given me predictions on Will trump lower tariffs on china in april?"))
+    response = asyncio.run(run_prediction_analysis("Build profile history for @Polymarket"))
 
     print("Response from prediction analysis:")
     print(response)
-    asyncio.run(run_prediction_analysis("Now give me credibility scores of the 1st 2 handles in a tabular format"))
+    
+    #print("User: You are looking awesome today")
+    #print() @shaneyyricch
+    # response = asyncio.run(run_prediction_analysis("Give me credibility scores for @elonmusk"))
+
+    # print("Response from prediction analysis:")
+    # print(response)
+    # asyncio.run(run_prediction_analysis("Now give me credibility scores of the 1st 2 handles in a tabular format"))
