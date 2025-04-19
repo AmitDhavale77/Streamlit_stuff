@@ -64,11 +64,11 @@ class PredictionProfiler:
             batch_tweets = tweets[i:i+batch_size]
             batch_tweet_list = "\n".join([f"{j+1}. {t}" for j, t in enumerate(batch_tweets)])
             
-            system_context = """You are an expert in identifying explicit and implicit predictions in tweets that could be relevant to Polymarket, a prediction market platform. Polymarket users bet on future events in politics, policy, business, law, and geopolitics.
+            system_context = """You are an expert in identifying **explicit and implicit predictions** in tweets that could be relevant to **Polymarket**, a prediction market platform. Polymarket users bet on **future events** in politics, policy, business, law, and geopolitics.
 
             **Definitions:**
-            1. **Explicit Prediction**: A direct statement about a future outcome (e.g., 'X will happen,' 'Y is likely to pass').
-            2. **Implicit Prediction**: A statement implying a future outcome (e.g., 'Senator proposes bill,' 'Protests may lead to...').
+            1. **Explicit Prediction**: A direct statement about a future outcome (e.g., "X will happen," "Y is likely to pass").
+            2. **Implicit Prediction**: A statement implying a future outcome (e.g., "Senator proposes bill," "Protests may lead to...").
 
             **Polymarket Topics Include:**
             - Elections, legislation, court rulings
@@ -77,25 +77,27 @@ class PredictionProfiler:
             - Geopolitical events (wars, treaties, sanctions)
             - Legal/Investigative outcomes (prosecutions, declassifications)
 
+            **Important Instruction:** Be *generous* in your classification. If a tweet suggests even a plausible implication of a future event **relevant to Polymarket topics**, classify it as **"Yes"**. It is better to include weak signals than to exclude potentially relevant ones. When in doubt, lean toward **"Yes"**.
+
             **Exclude:**
             - Past events (unless they imply future consequences)
-            - Pure opinions without forecastable outcomes
-            - Non-actionable statements (e.g., 'People are struggling')
+            - Pure opinions without any forecastable outcome
+            - Non-actionable statements (e.g., "People are struggling")
 
             **Examples:**
-            - 'Trump will win in 2024' → **Yes (Explicit)**
-            - 'Senator proposes bill to ban TikTok' → **Yes (Implicit)**
-            - "Nikki Haley is gaining ground in Iowa polls." → Yes (Implicit) (implies prediction market relevance)
-            - "Senate to vote on crypto regulation bill next week." → Yes (Implicit)
-            - "Will Russia use nuclear weapons in 2024?" → Yes (Explicit)
-            - "Israel expected to launch ground invasion of Gaza." → Yes (Implicit)
-            - "Elon Musk hints at stepping down as Twitter CEO." → Yes (Implicit)
-            - 'The economy is collapsing' → **No (No actionable prediction)**
-            - "I miss when politicians actually cared about the people." → No (opinion, not predictive)
-            - "The economy crashed last year and it's all downhill from here." → No (past event, vague future implication)
-            - "Climate change is real." → No (statement, no actionable prediction)
+            - "Trump will win in 2024" → **Yes (Explicit)**
+            - "Senator proposes bill to ban TikTok" → **Yes (Implicit)**
+            - "Nikki Haley is gaining ground in Iowa polls." → **Yes (Implicit)** (implies prediction market relevance)
+            - "Senate to vote on crypto regulation bill next week." → **Yes (Implicit)**
+            - "Will Russia use nuclear weapons in 2024?" → **Yes (Explicit)**
+            - "Israel expected to launch ground invasion of Gaza." → **Yes (Implicit)**
+            - "Elon Musk hints at stepping down as Twitter CEO." → **Yes (Implicit)**
+            - "The economy is collapsing" → **No** (No actionable prediction)
+            - "I miss when politicians actually cared about the people." → **No** (opinion, not predictive)
+            - "The economy crashed last year and it's all downhill from here." → **No** (past event, vague future implication)
+            - "Climate change is real." → **No** (statement, no actionable prediction)
 
-            **Task:** For each tweet, return **'Yes'** if it contains an explicit/implicit prediction relevant to Polymarket. Respond *only* with a JSON object like:
+            **Task:** For each tweet, return **"Yes"** if it contains an explicit or implicit prediction relevant to Polymarket — even if it's subtle or implied. Respond *only* with a JSON object like:
             {
             "predictions": ["Yes", "No", ...]
             }
